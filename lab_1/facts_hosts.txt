@@ -1,0 +1,49 @@
+localhost | UNREACHABLE! => {
+    "changed": false,
+    "msg": "Failed to connect to the host via ssh: sys_conf_deb@localhost: Permission denied (publickey,password).",
+    "unreachable": true
+}
+10.0.47.2 | SUCCESS => {
+    "ansible_facts": {
+        "ansible_all_ipv4_addresses": [
+            "10.0.47.2"
+        ],
+        "ansible_board_name": "VirtualBox",
+        "ansible_board_vendor": "Oracle Corporation",
+        "ansible_fqdn": "vTestPC002.home.local",
+        "ansible_os_family": "Debian",
+        "ansible_uptime_seconds": 4405,
+        "ansible_user_id": "sys_conf_deb",
+        "discovered_interpreter_python": "/usr/bin/python3"
+    },
+    "changed": false
+}
+10.0.47.3 | SUCCESS => {
+    "ansible_facts": {
+        "ansible_all_ipv4_addresses": [
+            "10.0.47.3"
+        ],
+        "ansible_board_name": "VirtualBox",
+        "ansible_board_vendor": "Oracle Corporation",
+        "ansible_fqdn": "vTestPC003.home.local",
+        "ansible_os_family": "Debian",
+        "ansible_uptime_seconds": 4404,
+        "ansible_user_id": "sys_conf_deb",
+        "discovered_interpreter_python": "/usr/bin/python3"
+    },
+    "changed": false
+}
+localhost | SUCCESS => {
+    "ansible_facts": {
+        "ansible_all_ipv4_addresses": [
+            "10.0.47.10"
+        ],
+        "ansible_board_name": "VirtualBox",
+        "ansible_board_vendor": "Oracle Corporation",
+        "ansible_fqdn": "vTestPC001.home.local",
+        "ansible_os_family": "Debian",
+        "ansible_uptime_seconds": 4457,
+        "ansible_user_id": "revan"
+    },
+    "changed": false
+}
