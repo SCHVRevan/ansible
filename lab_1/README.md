@@ -1,4 +1,4 @@
-Used two commands because I didn't figure out a possible solution to collecting information from localhost and remote machines without using inventory file.
+Used two commands because I didn't figure out a possible solution to collecting information from localhost and remote machines without using inventory file.  
 Decided to leave the error in the file as an educational artifact.
 
 ```bash
