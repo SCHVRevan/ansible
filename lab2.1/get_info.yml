@@ -1,0 +1,39 @@
+---
+- name: Get information about hosts
+  hosts: all
+  vars:
+    config_path: /lab2/ansible.cfg
+
+  tasks:
+    - name: Get system facts
+      ansible.builtin.setup:
+        gather_subset:
+          - 'min'
+
+      register: facts_result
+
+    - name: Show facts
+      vars:
+        uptime_str: >-
+          {% set days = ansible_uptime_seconds // 86400 %}
+          {% set hours = (ansible_uptime_seconds % 86400) // 3600 %}
+          {% set mins = (ansible_uptime_seconds % 3600) // 60 %}
+          {{ days }} дней {{ hours }} часов {{ mins }} минут
+
+      ansible.builtin.debug:
+        msg:
+          - "Информация о ПК"
+          - "───────────────────────────────"
+          - "Хост:         {{ ansible_hostname }}"
+          - "FDQN:         {{ ansible_fqdn }}"
+          - "Версия:       {{ ansible_distribution_version }}"
+          - "Конфиг:       {{ config_path }}"
+          - "Дата/время:   {{ ansible_date_time.date }} {{ ansible_date_time.time }}"
+          - "Пользователь: {{ ansible_user_id }}"
+          - "Версия ОС:    {{ ansible_distribution }} {{ ansible_distribution_version }}"
+          - "Семейство ОС: {{ ansible_os_family }}"
+          - "RAM:          {{ ansible_memtotal_mb }}"
+          - "ip адрес:     {{ ansible_all_ipv4_addresses }}"
+          - "Время работы: {{ uptime_str }}"
+          - "───────────────────────────────"
+      when: facts_result is defined
