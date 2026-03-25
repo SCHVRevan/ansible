@@ -1,0 +1,33 @@
+
+PLAY [Nginx installation and configuration] ************************************
+
+TASK [Apt cache update] ********************************************************
+changed: [vTestPC003]
+
+TASK [Install nginx] ***********************************************************
+changed: [vTestPC003]
+
+TASK [Create nginx conf from j2 template] **************************************
+changed: [vTestPC003]
+
+TASK [Start nginx] *************************************************************
+ok: [vTestPC003]
+
+TASK [Flush handlers for config check] *****************************************
+
+RUNNING HANDLER [Restart nginx] ************************************************
+changed: [vTestPC003]
+
+TASK [Check nginx config] ******************************************************
+ok: [vTestPC003]
+
+TASK [Show check result] *******************************************************
+ok: [vTestPC003] => 
+  msg:
+  - []
+  - - 'nginx: the configuration file /etc/nginx/nginx.conf syntax is ok'
+    - 'nginx: configuration file /etc/nginx/nginx.conf test is successful'
+
+PLAY RECAP *********************************************************************
+vTestPC003                 : ok=7    changed=4    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

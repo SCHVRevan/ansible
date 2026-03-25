@@ -1,0 +1,57 @@
+---
+- name: Nginx installation and configuration
+  hosts: vTestPC003
+  become: true
+  gather_facts: false
+  check_mode: false
+  vars:
+    nginx_user: www-data
+    nginx_worker_connections: 512
+    config_path: /lab2_1/ansible.cfg
+
+  tasks:
+    - name: Apt cache update
+      ansible.builtin.apt:
+        update_cache: true
+
+    - name: Install nginx
+      ansible.builtin.apt:
+        name: nginx
+        state: present
+      notify: Restart nginx
+
+    - name: Create nginx conf from j2 template
+      ansible.builtin.template:
+        src: templates/nginx.conf.j2
+        dest: /etc/nginx/nginx.conf
+        owner: root # sys_conf_deb
+        group: root # sys_conf_deb
+        mode: '0644'
+      notify: Restart nginx
+
+
+    - name: Start nginx
+      ansible.builtin.service:
+        name: nginx
+        state: started
+
+    - name: Flush handlers for config check
+      ansible.builtin.meta: flush_handlers
+
+    - name: Check nginx config
+      ansible.builtin.command: nginx -t
+      register: nginx_test
+      changed_when: false # to override systems perception of this command
+      check_mode: false # always execute it
+
+    - name: Show check result
+      ansible.builtin.debug:
+        msg:
+          - "{{ nginx_test.stdout_lines }}"
+          - "{{ nginx_test.stderr_lines }}"
+
+  handlers:
+    - name: Restart nginx
+      ansible.builtin.service:
+        name: nginx
+        state: restarted
