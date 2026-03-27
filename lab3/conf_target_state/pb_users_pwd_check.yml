@@ -1,0 +1,51 @@
+---
+- name: Check account passwords
+  hosts: vTestPC003
+  become: true
+  gather_facts: false
+  check_mode: false
+
+  tasks:
+    # Shadow passwords check
+    - name: Check for non-shadowed passwords
+      ansible.builtin.shell: |-
+        awk -F: '($2 != "x" ) { print $1 }' /etc/passwd
+      register: non_shadowed
+      changed_when: false
+      failed_when: false
+
+    - name: Warn about non-shadowed passwords
+      ansible.builtin.debug:
+        msg: "Users with unshadowed passwords: {{ non_shadowed.stdout_lines }}"
+      when: non_shadowed.stdout_lines | length > 0
+
+
+    # Check for users without password
+    - name: Check for users without password
+      ansible.builtin.shell: |-
+        awk -F: '($2 == "" ) { print $1 }' /etc/shadow
+      register: no_password
+      changed_when: false
+      failed_when: false
+
+    - name: Warn about users without password
+      ansible.builtin.debug:
+        msg: "Users without password (will be locked): {{ no_password.stdout_lines }}"
+      when: no_password.stdout_lines | length > 0
+
+    - name: Lock users without password
+      ansible.builtin.user:
+        name: "{{ item }}"
+        password_lock: true # passwd -l <username>
+      loop: "{{ no_password.stdout_lines }}"
+      when: no_password.stdout_lines | length > 0
+      register: lock_result
+
+    - name: Show lock summary
+      ansible.builtin.debug:
+        msg:
+          - "Locked users:"
+          - "{{ lock_result.results | selectattr('changed', 'equalto', true) | map(attribute='item') | list }}"
+          - "Failed locks:"
+          - "{{ lock_result.results | selectattr('failed', 'equalto', true) | map(attribute='item') | list }}"
+      when: lock_result is defined and no_password.stdout_lines | length > 0

@@ -1,0 +1,70 @@
+---
+- name: User creation&configuration
+  hosts: vTestPC003
+  become: true
+  gather_facts: false
+  check_mode: false
+
+  vars:
+    pass_max_days: 180
+    pass_min_days: 1
+    pass_warn_age: 7
+    pass_inactive: 0
+
+    sudo_users:
+      {user01: "$6$7p7xJOJXbc.LSKGf$DmI.i3BQdXSI9FnXQL8vBM4eadR0jJAU4TbgMKDnUTNkkw9fpHMqgAjBujHLVaMSnxO1In.9/naWGETDBa0NM1"}
+      # '112233qqWWee!!@@##' (yeah, it's bad but it's for educational purposes) (thats about either password and comment)
+    regular_users:
+      {user02: "$6$9LWEweffVnpz0yxl$Qm51WtpqAnrVVqX3gR3dju41/6OUz3L4.Q2wIII3BtJQK36tEiFgbke7/twPgYYMohbIkvuYoCBeSVE39Wi7b/"}
+      # mkpasswd -m sha-512 '123qwe'
+
+    users: "{{ sudo_users | combine(regular_users) }}"
+
+  tasks:
+    - name: Create users
+      ansible.builtin.user:
+        name: "{{ item.key }}"
+        password: "{{ item.value }}"
+        groups: "{{ 'sudo' if item.key in sudo_users.keys() else 'users' }}"
+        create_home: true
+        password_expire_max: "{{ pass_max_days }}"
+        password_expire_min: "{{ pass_min_days }}"
+        # password_expire_warn: "{{ pass_warn_age }}"
+        # password_expire_account_disable: "{{ pass_inactive }}"
+        state: present
+      loop: "{{ users | dict2items }}"
+      register: result
+      failed_when: false
+
+    - name: Show user creation results
+      ansible.builtin.debug:
+        msg:
+          - "Created/Modified: {{ result.results | selectattr('changed', 'equalto', true) | map(attribute='item.key') | list }}"
+          - "Failed: {{ result.results | selectattr('failed', 'equalto', true) | map(attribute='item.key') | list }}"
+          - "Skipped/Unchanged: {{ result.results | rejectattr('changed') | rejectattr('failed') | map(attribute='item.key') | list }}"
+      when: result.results is defined
+
+    # Our initial pwds don't correspond to our policies so let them be one time pwds
+    - name: Force password change for created users
+      ansible.builtin.command:
+        cmd: "chage -d 0 {{ item.item.key }}"
+      loop: "{{ result.results }}"
+      when:
+        - item.changed
+        - item.item.key not in ['root', 'nobody']
+      changed_when: true
+
+    # Можно было также применять только к добавленным, но будем считать,
+    # что таким образом обеспечиваем гарантию корректности этого параметра у всех пользователей
+    - name: Apply INACTIVE policy to all users # password_expire_account_disable: 0
+      ansible.builtin.command:
+        cmd: "chage -I {{ pass_inactive }} {{ item.key }}"
+      loop: "{{ users | dict2items }}"
+      changed_when: true
+      register: inactive_result
+
+    - name: Show INACTIVE policy application
+      ansible.builtin.debug:
+        msg:
+          - "Users updated: {{ inactive_result.results | selectattr('changed', 'equalto', true) | map(attribute='item.key') | list }}"
+      when: inactive_result.results is defined

@@ -1,0 +1,141 @@
+---
+- name: Configure account policies and login.defs
+  hosts: vTestPC003 # hosts
+  become: true
+  gather_facts: false
+  check_mode: false
+
+  vars:
+    uid_min: 1000
+    pass_max_days: 180
+    pass_min_days: 1
+    pass_warn_age: 7
+    pass_inactive: 0
+    tmout_seconds: 900
+    admin_user: "revan"
+    domain_name: "orgname.local"
+    opasswd_file: /etc/security/opasswd
+    sshd_config: /etc/ssh/sshd_config
+
+  tasks:
+    # Setting up /etc/login.defs
+    - name: Configure UID_MIN in login.defs
+      ansible.builtin.lineinfile:
+        path: /etc/login.defs
+        regexp: '^UID_MIN'
+        line: "UID_MIN {{ uid_min }}"
+      notify: Verify login.defs
+
+    - name: Configure password expiration policies in login.defs
+      ansible.builtin.lineinfile:
+        path: /etc/login.defs
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+      loop:
+        - { regexp: '^\s*PASS_MAX_DAYS', line: "PASS_MAX_DAYS {{ pass_max_days }}" }
+        - { regexp: '^\s*PASS_MIN_DAYS', line: "PASS_MIN_DAYS {{ pass_min_days }}" }
+        - { regexp: '^\s*PASS_WARN_AGE', line: "PASS_WARN_AGE {{ pass_warn_age }}" }
+      notify: Verify login.defs
+
+
+    # opasswd config
+    - name: Ensure opasswd file exists with correct permissions
+      ansible.builtin.file:
+        path: "{{ opasswd_file }}"
+        state: touch
+        owner: root
+        group: root
+        mode: '0600'
+      register: opasswd_result
+      changed_when:
+        - opasswd_result.changed
+        - opasswd_result.uid != 0 or opasswd_result.gid != 0 or opasswd_result.mode != '0600'
+
+
+    # TMOUT config
+    - name: Find all profile scripts
+      ansible.builtin.find:
+        paths: /etc/profile.d
+        patterns: "*.sh"
+      register: profile_scripts
+
+    # not optimal decision, but it cleans up, so...
+    - name: Clean existing TMOUT lines
+      ansible.builtin.lineinfile:
+        path: "{{ item }}"
+        regexp: '^\s*(TMOUT=|readonly TMOUT)'
+        state: absent
+      loop: "{{ profile_scripts.files | map(attribute='path') | list + ['/etc/bash.bashrc', '/etc/profile'] }}"
+
+    - name: Add TMOUT block
+      ansible.builtin.blockinfile:
+        path: "{{ item }}"
+        block: |
+          TMOUT={{ tmout_seconds }}
+          readonly TMOUT
+        marker: "# {mark} ANSIBLE MANAGED"
+      loop: "{{ profile_scripts.files | map(attribute='path') | list + ['/etc/bash.bashrc', '/etc/profile'] }}"
+      notify: Apply session timeout
+
+
+    # SSH Configuration
+    - name: Configure SSH authentication settings
+      ansible.builtin.lineinfile:
+        path: "{{ sshd_config }}"
+        regexp: "^{{ item.regexp }}\\s"
+        line: "{{ item.line }}"
+        validate: 'sshd -t -f %s'
+        backrefs: true
+      loop:
+        - { regexp: 'PubkeyAuthentication', line: 'PubkeyAuthentication yes' }
+        - { regexp: 'PasswordAuthentication', line: 'PasswordAuthentication no' }
+        - { regexp: 'ChallengeResponseAuthentication', line: 'ChallengeResponseAuthentication no' }
+      notify: Restart sshd
+
+    - name: Configure domain users authentication
+      ansible.builtin.blockinfile:
+        path: "{{ sshd_config }}"
+        block: |-
+          Match Group domain_users@{{ domain_name }}
+              PasswordAuthentication yes
+          Match User {{ admin_user }}
+              PasswordAuthentication yes
+        marker: "# {mark} ANSIBLE MANAGED"
+        validate: 'sshd -t -f %s'
+      register: ssh_block
+      notify: Restart sshd
+      changed_when: ssh_block.changed
+
+
+    # Applying chage to existing users
+    - name: Get all regular users (UID >= 1000)
+      ansible.builtin.getent:
+        database: passwd
+      register: passwd_db
+
+    - name: Apply chage policies to existing users
+      ansible.builtin.command:
+        cmd: "chage -M {{ pass_max_days }} -m {{ pass_min_days }} -W {{ pass_warn_age }} -I {{ pass_inactive }} {{ item.key }}"
+      loop: "{{ passwd_db.ansible_facts.getent_passwd | dict2items }}"
+      when:
+        - item.value[1] | int >= uid_min  # to int
+        - item not in ['root', 'nobody']
+      changed_when: true
+
+  handlers:
+    - name: Restart sshd
+      ansible.builtin.service:
+        name: sshd
+        state: restarted
+
+    - name: Verify login.defs
+      ansible.builtin.shell: |-
+        grep -E "^(UID_MIN|PASS_MAX_DAYS|PASS_MIN_DAYS|PASS_WARN_AGE)" /etc/login.defs
+      register: login_defs_check
+      changed_when: false
+
+    - name: Apply session timeout
+      ansible.builtin.shell: |-
+        grep -r "^\s*TMOUT=" /etc/bash.bashrc /etc/profile /etc/profile.d/
+      register: tmout_check
+      changed_when: false

@@ -1,0 +1,124 @@
+---
+- name: Configure PAM password policies
+  hosts: vTestPC003
+  become: true
+  gather_facts: false
+  check_mode: false
+
+  vars:
+    min_pwd_len: 16
+    password_history: 5
+    deny_attempts: 5
+    unlock_time: 1800
+
+    # PAM configuration files
+    common_password: /etc/pam.d/common-password
+    common_auth: /etc/pam.d/common-auth
+    common_account: /etc/pam.d/common-account
+
+  tasks:
+    # Можно было бы выставлять целыми блоками, но для этого хорошо бы полностью определить весь файл, поэтому немного костылей
+    # Configure common-password
+    - name: Configure password quality requirements
+      ansible.builtin.lineinfile:
+        path: "{{ common_password }}"
+        regexp: '^password\s+requisite\s+pam_pwquality.so'
+        line: "password requisite pam_pwquality.so retry=5 enforce_for_root minlen={{ min_pwd_len }}
+         dcredit=-1 ucredit=-1 lcredit=-1 ocredit=-1 maxrepeat=3 local_users_only"
+        insertafter: '^# here are the per-package modules'
+        # backup: true
+
+    - name: Configure password history and hashing
+      ansible.builtin.lineinfile:
+        path: "{{ common_password }}"
+        regexp: '^password\s+\[success=1 default=ignore\]\s+pam_unix.so.*$'
+        line: "password [success=1 default=ignore] pam_unix.so obscure use_authtok try_first_pass remember={{ password_history }} gost12_512"
+        # backup: true
+
+
+    # Configure common-auth
+    - name: Update pam_unix with secure options # 4
+      ansible.builtin.lineinfile:
+        path: "{{ common_auth }}"
+        regexp: '^auth\s+\[success=1 default=ignore\]\s+pam_unix.so'
+        line: "auth [success=1 default=ignore] pam_unix.so nullok_secure try_first_pass"
+
+    - name: Add faillock # 3
+      ansible.builtin.lineinfile:
+        path: "{{ common_auth }}"
+        regexp: '^auth\s+\[success=ignore default=die\]\s+pam_faillock.so'
+        line: "auth [success=ignore default=die] pam_faillock.so deny={{ deny_attempts }} unlock_time={{ unlock_time }}"
+        insertafter: '# here are the per-package modules'
+
+    - name: Add pam_succeed_if # 2
+      ansible.builtin.lineinfile:
+        path: "{{ common_auth }}"
+        regexp: '^auth\s+\[success=1 default=ignore\]\s+pam_succeed_if.so'
+        line: "auth [success=1 default=ignore] pam_succeed_if.so quiet user ingroup sudo"
+        insertafter: '# here are the per-package modules'
+
+    - name: Add pam_localuser # 1
+      ansible.builtin.lineinfile:
+        path: "{{ common_auth }}"
+        regexp: '^auth\s+\[success=ignore default=2\]\s+pam_localuser.so'
+        line: "auth [success=ignore default=2] pam_localuser.so"
+        insertafter: '# here are the per-package modules'
+
+
+    # Configure common-account
+    - name: Update pam_unix in common-account
+      ansible.builtin.lineinfile:
+        path: "{{ common_account }}"
+        regexp: '^account\s+\[success=1 new_authtok_reqd=done default=ignore\]\s+pam_unix.so'
+        line: "account [success=1 new_authtok_reqd=done default=ignore] pam_unix.so"
+
+    - name: Add pam_faillock
+      ansible.builtin.lineinfile:
+        path: "{{ common_account }}"
+        regexp: '^account\s+required\s+pam_faillock.so'
+        line: "account required pam_faillock.so"
+        insertafter: '# here are the per-package modules'
+
+    - name: Ensure pam_deny exists
+      ansible.builtin.lineinfile:
+        path: "{{ common_account }}"
+        regexp: '^account\s+requisite\s+pam_deny.so'
+        line: "account requisite pam_deny.so"
+        insertafter: '^account\s+\[success=1 new_authtok_reqd=done default=ignore\]\s+pam_unix.so'
+
+    - name: Ensure pam_permit exists
+      ansible.builtin.lineinfile:
+        path: "{{ common_account }}"
+        regexp: '^account\s+required\s+pam_permit.so'
+        line: "account required pam_permit.so"
+        insertafter: '^account\s+requisite\s+pam_deny.so'
+
+
+    # Verify PAM configuration
+    - name: Verify common-password configuration
+      ansible.builtin.command:
+        cmd: "grep -E '(pam_pwquality|remember)' {{ common_password }}"
+      register: password_check
+      changed_when: false
+
+    - name: Verify common-auth configuration
+      ansible.builtin.command:
+        cmd: "grep pam_faillock {{ common_auth }}"
+      register: auth_check
+      changed_when: false
+
+    - name: Verify common-account configuration
+      ansible.builtin.command:
+        cmd: "grep pam_faillock {{ common_account }}"
+      register: account_check
+      changed_when: false
+
+    - name: Display PAM verification results
+      ansible.builtin.debug:
+        msg:
+          - "Password Policy Verification:"
+          - "Min length {{ min_pwd_len }}, History {{ password_history }}"
+          - "{{ password_check.stdout_lines }}"
+          - "\nAuth Policy:"
+          - "Deny {{ deny_attempts }}, Unlock {{ unlock_time }}s"
+          - "{{ auth_check.stdout_lines }}"

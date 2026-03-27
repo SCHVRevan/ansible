@@ -1,0 +1,70 @@
+---
+- name: Configure SSH, SSSD and Kerberos authentication
+  hosts: vTestPC003
+  become: true
+  gather_facts: false
+  check_mode: false
+
+  vars:
+    sssd_config: /etc/sssd/sssd.conf
+    krb5_config: /etc/krb5.conf
+    domain_name: "orgname.local"
+
+  tasks:
+    # Так как на машинах не имеется соответствующего ПО и файлов конфигураций,
+    # сэмитирую их проверку и корректировку
+
+    # Kerberos Configuration
+    - name: Ensure Kerberos config exists
+      ansible.builtin.blockinfile:
+        path: /etc/krb5.conf
+        create: true
+        block: |-
+          [libdefaults]
+          default_etypes = aes128-cts-hmac-sha1-96, aes256-cts-hmac-sha1-96
+          default_as_etypes = aes128-cts-hmac-sha1-96, aes256-cts-hmac-sha1-96
+          default_tgs_etypes = aes128-cts-hmac-sha1-96, aes256-cts-hmac-sha1-96
+        marker: "# {mark} ANSIBLE MANAGED"
+        mode: '0600'
+      when: not ansible_check_mode
+
+
+    # SSSD Configuration
+    - name: Ensure SSSD config exists
+      ansible.builtin.blockinfile:
+        path: /etc/sssd/sssd.conf
+        create: true
+        block: |-
+          [sssd]
+          services = nss, pam
+          domains = default
+          [domain/default]
+          cache_credentials = False
+          fallback_homedir = /home/%u@%d
+        marker: "# {mark} ANSIBLE MANAGED"
+        mode: '0644'
+      when: not ansible_check_mode
+
+    - name: Configure SSSD fallback homedir with domain
+      ansible.builtin.lineinfile:
+        path: "{{ sssd_config }}"
+        regexp: '^\s*fallback_homedir'
+        line: 'fallback_homedir = /home/%u@%d'
+      # notify: Restart sssd
+
+    - name: Disable credential caching in SSSD
+      ansible.builtin.lineinfile:
+        path: "{{ sssd_config }}"
+        regexp: '^\s*cache_credentials'
+        line: 'cache_credentials = False'
+      # notify: Restart sssd
+
+  handlers:
+    # - name: Restart sssd
+    #   ansible.builtin.service:
+    #     name: sssd
+    #     state: restarted
+
+    - name: No action needed
+      ansible.builtin.debug:
+        msg: "Kerberos configuration updated"
