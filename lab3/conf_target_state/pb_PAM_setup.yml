@@ -112,13 +112,3 @@
         cmd: "grep pam_faillock {{ common_account }}"
       register: account_check
       changed_when: false
-
-    - name: Display PAM verification results
-      ansible.builtin.debug:
-        msg:
-          - "Password Policy Verification:"
-          - "Min length {{ min_pwd_len }}, History {{ password_history }}"
-          - "{{ password_check.stdout_lines }}"
-          - "\nAuth Policy:"
-          - "Deny {{ deny_attempts }}, Unlock {{ unlock_time }}s"
-          - "{{ auth_check.stdout_lines }}"
