@@ -1,0 +1,30 @@
+
+PLAY [Check Domain Authentication Configuration] *******************************
+
+TASK [Check if Kerberos config exists] *****************************************
+ok: [vTestPC003]
+
+TASK [Warn if Kerberos config missing] *****************************************
+skipping: [vTestPC003]
+
+TASK [Check Kerberos settings] *************************************************
+ok: [vTestPC003]
+
+TASK [Check if SSSD config exists] *********************************************
+ok: [vTestPC003]
+
+TASK [Warn if SSSD config missing] *********************************************
+skipping: [vTestPC003]
+
+TASK [Check SSSD settings] *****************************************************
+ok: [vTestPC003]
+
+TASK [Show results] ************************************************************
+ok: [vTestPC003] => 
+  msg:
+  - 'Kerberos: OK'
+  - 'SSSD:     OK'
+
+PLAY RECAP *********************************************************************
+vTestPC003                 : ok=5    changed=0    unreachable=0    failed=0    skipped=2    rescued=0    ignored=0   
+

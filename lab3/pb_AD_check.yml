@@ -1,0 +1,60 @@
+---
+- name: Check Domain Authentication Configuration
+  hosts: vTestPC003
+  become: true
+  gather_facts: false
+  check_mode: false
+
+  vars:
+    krb5_config: /etc/krb5.conf
+    sssd_config: /etc/sssd/sssd.conf
+
+  tasks:
+    # Check Kerberos config
+    - name: Check if Kerberos config exists
+      ansible.builtin.stat:
+        path: "{{ krb5_config }}"
+      register: krb5_stat
+
+    - name: Warn if Kerberos config missing
+      ansible.builtin.fail:
+        msg: "{{ krb5_config }} not found"
+      when: not krb5_stat.stat.exists
+
+    - name: Check Kerberos settings
+      ansible.builtin.shell: |-
+        grep -q "default_etypes = aes128-cts-hmac-sha1-96, aes256-cts-hmac-sha1-96" /etc/krb5.conf && \
+        grep -q "default_as_etypes = aes128-cts-hmac-sha1-96, aes256-cts-hmac-sha1-96" /etc/krb5.conf && \
+        grep -q "default_tgs_etypes = aes128-cts-hmac-sha1-96, aes256-cts-hmac-sha1-96" /etc/krb5.conf
+      register: krb5_check
+      changed_when: false
+      failed_when: false
+      when: krb5_stat.stat.exists
+
+
+    # Check SSSD config
+    - name: Check if SSSD config exists
+      ansible.builtin.stat:
+        path: "{{ sssd_config }}"
+      register: sssd_stat
+
+    - name: Warn if SSSD config missing
+      ansible.builtin.fail:
+        msg: "{{ sssd_config }} not found"
+      when: not sssd_stat.stat.exists
+
+    - name: Check SSSD settings
+      ansible.builtin.shell: |-
+        grep -q "cache_credentials = False" /etc/sssd/sssd.conf && \
+        grep -q "fallback_homedir = /home/%u@%d" /etc/sssd/sssd.conf
+      register: sssd_check
+      changed_when: false
+      failed_when: false
+      when: sssd_stat.stat.exists
+
+
+    - name: Show results
+      ansible.builtin.debug:
+        msg:
+          - "Kerberos: {% if krb5_check.rc == 0 %}OK{% else %}Missconfig{% endif %}"
+          - "SSSD:     {% if sssd_check.rc == 0 %}OK{% else %}Missconfig{% endif %}"

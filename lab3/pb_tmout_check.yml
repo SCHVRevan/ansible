@@ -1,0 +1,39 @@
+---
+- name: Check TMOUT configuration
+  hosts: vTestPC003
+  become: false
+  gather_facts: false
+  check_mode: false
+
+  vars:
+    tmout_seconds: 900
+
+  tasks:
+    - name: Find all profile scripts
+      ansible.builtin.find:
+        paths: /etc/profile.d
+        patterns: "*.sh"
+      register: profile_scripts
+
+    - name: Check for TMOUT configuration
+      ansible.builtin.shell: |
+        grep -l "^TMOUT={{ tmout_seconds }}" {{ item }} 2>/dev/null && grep -l "^readonly TMOUT" {{ item }} 2>/dev/null
+      loop: "{{ profile_scripts.files | map(attribute='path') | list + ['/etc/bash.bashrc', '/etc/profile'] }}"
+      register: tmout_check
+      changed_when: false
+      failed_when: false
+
+    - name: Determine files with correct TMOUT
+      ansible.builtin.set_fact:
+        files_with_tmout: "{{ tmout_check.results | selectattr('rc', 'equalto', 0) | map(attribute='item') | list }}"
+        files_without_tmout: "{{ tmout_check.results | rejectattr('rc', 'equalto', 0) | map(attribute='item') | list }}"
+
+    - name: Show TMOUT status
+      ansible.builtin.debug:
+        msg:
+          - "-----------------------------------------"
+          - "Files with correct TMOUT:"
+          - "{{ files_with_tmout | join('\n') }}"
+          - "-----------------------------------------"
+          - "Files without or missconfigured TMOUT:"
+          - "{{ files_without_tmout | join('\n') }}"
