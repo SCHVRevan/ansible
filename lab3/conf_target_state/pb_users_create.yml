@@ -26,6 +26,7 @@
         name: "{{ item.key }}"
         password: "{{ item.value }}"
         groups: "{{ 'sudo' if item.key in sudo_users.keys() else 'users' }}"
+        shell: /bin/bash
         create_home: true
         password_expire_max: "{{ pass_max_days }}"
         password_expire_min: "{{ pass_min_days }}"
