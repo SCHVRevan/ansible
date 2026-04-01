@@ -17,6 +17,11 @@
     common_account: /etc/pam.d/common-account
 
   tasks:
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: true
+      changed_when: false
+
     - name: Install required PAM modules if missing
       ansible.builtin.apt:
         name:
