@@ -17,6 +17,13 @@
     common_account: /etc/pam.d/common-account
 
   tasks:
+    - name: Install required PAM modules if missing
+      ansible.builtin.apt:
+        name:
+          - libpam-pwquality
+          - libpam-modules
+        state: present
+
     # Можно было бы выставлять целыми блоками, но для этого хорошо бы полностью определить весь файл, поэтому немного костылей
     # Configure common-password
     - name: Configure password quality requirements
@@ -32,7 +39,8 @@
       ansible.builtin.lineinfile:
         path: "{{ common_password }}"
         regexp: '^password\s+\[success=1 default=ignore\]\s+pam_unix.so.*$'
-        line: "password [success=1 default=ignore] pam_unix.so obscure use_authtok try_first_pass remember={{ password_history }} gost12_512"
+        # don't have gost12_512, so let it be sha512
+        line: "password [success=1 default=ignore] pam_unix.so obscure use_authtok try_first_pass remember={{ password_history }} sha512"
         # backup: true
 
 
