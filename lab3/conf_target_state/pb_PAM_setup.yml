@@ -45,7 +45,7 @@
         path: "{{ common_password }}"
         regexp: '^password\s+\[success=1 default=ignore\]\s+pam_unix.so.*$'
         # don't have gost12_512, so let it be sha512
-        line: "password [success=1 default=ignore] pam_unix.so obscure use_authtok try_first_pass remember={{ password_history }} sha512"
+        line: "password [success=1 default=ignore] pam_unix.so obscure use_authtok try_first_pass remember={{ password_history }} gost-yescrypt"
         # backup: true
 
 
