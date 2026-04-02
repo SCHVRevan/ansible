@@ -1,0 +1,56 @@
+---
+- name: Check if audit exists
+  ansible.builtin.file:
+    path: "/var/log/audit"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Create tmp mount point
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+  loop:
+    - /mnt/tmp_home
+    - /mnt/tmp_var
+    - /mnt/tmp_log
+    - /mnt/tmp_audit
+
+- name: Temporary mounting of new disk
+  ansible.posix.mount:
+    path: "/mnt/tmp_{{ item.name }}"
+    src: "{{ target_disk }}{{ item.num }}"
+    fstype: ext4
+    state: mounted
+  loop:
+    - { name: 'home', num: 1 }
+    - { name: 'var', num: 2 }
+    - { name: 'log', num: 3 }
+    - { name: 'audit', num: 4 }
+    - { name: 'vartmp', num: 5 } # 5
+
+- name: Data syncing (rsync)
+  ansible.posix.synchronize:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    archive: true # sync everything
+    rsync_opts: "{{ item.opts | default([]) + ['--xattrs'] }}" # sync Extended Attributes
+  delegate_to: "{{ inventory_hostname }}"
+  loop:
+    - { src: '/home/', dest: '/mnt/tmp_home/' }
+    - { src: '/var/', dest: '/mnt/tmp_var/', opts: ['--exclude=/log/*', '--exclude=/tmp/*'] }
+    - { src: '/var/log/', dest: '/mnt/tmp_log/', opts: ['--exclude=/audit/*'] }
+    - { src: '/var/log/audit/', dest: '/mnt/tmp_audit/' }
+    - { src: '/var/tmp/', dest: '/mnt/tmp_vartmp/', opts: ['--exclude=lost+found'] }
+
+- name: Umount of tmp mount point
+  ansible.posix.mount:
+    path: "/mnt/tmp_{{ item }}"
+    state: absent
+  loop: ['audit', 'log', 'var', 'home', 'vartmp']
+
+# further permanent mounting in pb_disk_mounting.yml

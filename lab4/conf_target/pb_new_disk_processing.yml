@@ -1,0 +1,47 @@
+---
+- name: Partitioning a new disk and moving /var /var/log /var/log/audit /home mount points on it
+  hosts: vTestPC002
+  become: true
+  gather_facts: false
+  check_mode: false
+
+  vars:
+    target_disk: "/dev/sdb"
+
+  tasks:
+    - name: Check rsync package
+      ansible.builtin.apt:
+        name: rsync
+        state: present
+        update_cache: true
+
+    - name: Partitioning sdb
+      community.general.parted:
+        device: "{{ target_disk }}"
+        label: gpt
+        number: "{{ item.num }}"
+        part_start: "{{ item.start }}"
+        part_end: "{{ item.end }}"
+        state: present
+      loop:
+        - { num: 1, start: "1MiB", end: "2GiB" }   # /home
+        - { num: 2, start: "2GiB", end: "3GiB" }   # /var
+        - { num: 3, start: "3GiB", end: "4GiB" }   # /var/log
+        - { num: 4, start: "4GiB", end: "4.5GiB" } # /var/log/audit
+        - { num: 5, start: "4.5GiB", end: "5.5GiB" } # /var/tmp
+
+    - name: Formatting in ext4
+      community.general.filesystem:
+        fstype: ext4
+        dev: "{{ target_disk }}{{ item }}"
+      loop: [1, 2, 3, 4, 5]
+
+    - name: Sync current data (via tmp mounting points)
+      ansible.builtin.import_tasks: pb_mount_points_migration.yml
+
+    - name: Permanent mounting
+      ansible.builtin.import_tasks: pb_disk_mounting.yml
+
+    - name: Access control configuration (kinda like)
+      ansible.builtin.import_tasks: pb_access_rights_conf.yml
+      tags: [permissions]

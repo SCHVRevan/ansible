@@ -1,0 +1,96 @@
+---
+- name: UMASK in /etc/login.defs
+  ansible.builtin.lineinfile:
+    path: /etc/login.defs
+    regexp: '^UMASK'
+    line: 'UMASK           027'
+
+- name: Create /etc/profile.d/orgnm.sh
+  ansible.builtin.copy:
+    dest: /etc/profile.d/orgnm.sh
+    content: "umask 027"
+    mode: '0644'
+
+- name: Configure DIR_MODE in /etc/adduser.conf
+  ansible.builtin.lineinfile:
+    path: /etc/adduser.conf
+    regexp: '^#?DIR_MODE='
+    line: 'DIR_MODE=0700'
+
+# Unused file systems
+- name: Blocking unused file systems
+  ansible.builtin.blockinfile:
+    path: /etc/modprobe.d/fs-blacklist.conf
+    create: true # if missing
+    owner: root
+    group: root
+    mode: '0644'
+    block: |
+      install cramfs /bin/true
+      install freevxfs /bin/true
+      install jffs2 /bin/true
+      install hfs /bin/true
+      install hfsplus /bin/true
+      install squashfs /bin/true
+    marker: "# {mark} ANSIBLE MANAGED"
+
+- name: Unload unused modules
+  community.general.modprobe:
+    name: "{{ item }}"
+    state: absent
+  loop: [cramfs, freevxfs, jffs2, hfs, hfsplus, squashfs]
+
+- name: Hardening critical conf files (644)
+  ansible.builtin.file:
+    path: "{{ item }}"
+    owner: root
+    group: root
+    mode: '0644'
+  loop:
+    - /etc/issue
+    - /etc/issue.net
+    - /etc/motd
+    - /etc/passwd
+    - /etc/passwd-
+    - /etc/resolv.conf
+    - /etc/profile
+    - /etc/group
+    - /etc/group-
+    - /etc/services
+
+- name: Hardening critical conf files (600)
+  ansible.builtin.file:
+    path: "{{ item }}"
+    owner: root
+    group: root
+    mode: '0600'
+  loop:
+    - /boot/grub/grub.cfg
+    - /etc/shadow
+    - /etc/shadow-
+    - /etc/crontab
+    - /etc/cron.hourly
+    - /etc/cron.daily
+    - /etc/cron.monthly
+    - /etc/cron.d
+    - /etc/hosts
+    - /etc/hosts.allow
+    - /etc/hosts.deny
+    - /etc/login.defs
+    - /etc/security/opasswd
+    - /etc/ssh/sshd_config
+    - /etc/sssd/sssd.conf
+    - /etc/krb5.conf
+
+- name: Set Sticky Bit on shared dirs and files
+  ansible.builtin.shell:
+    cmd: >
+      df --local -P | awk '{if (NR!=1) print $6}' | xargs -I '{}'
+      find '{}' -xdev -type d \( -perm -0002 -a ! -perm -1000 \) 2>/dev/null
+      | xargs -I '{}' chmod a+t '{}'
+  changed_when: false
+
+- name: Rights for /var/log
+  ansible.builtin.shell:
+    cmd: find /var/log -type f -exec chmod g-wx,o-rwx "{}" + -o -type d -exec chmod g-w,o-rwx "{}" +
+  changed_when: false

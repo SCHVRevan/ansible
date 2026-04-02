@@ -1,0 +1,81 @@
+---
+- name: Get partitions UUID
+  ansible.builtin.setup:
+    filter: "ansible_devices"
+
+- name: Mount config for /tmp (to tmpfs)
+  ansible.posix.mount:
+    path: /tmp
+    src: tmpfs
+    fstype: tmpfs
+    opts: "mode=1777,strictatime,noexec,nodev,nosuid"
+    dump: 0
+    passno: 0
+    state: present
+
+- name: Mount config for /dev/shm
+  ansible.posix.mount:
+    path: /dev/shm
+    src: tmpfs
+    fstype: tmpfs
+    opts: "defaults,noexec,nodev,nosuid,seclabel"
+    dump: 0
+    passno: 0
+    state: present
+
+- name: Mount config for /home
+  ansible.posix.mount:
+    path: /home
+    src: "UUID={{ ansible_facts.devices.sdb.partitions.sdb1.uuid }}"
+    fstype: ext4
+    opts: "defaults,nodev"
+    dump: 0
+    passno: 2
+    state: mounted
+
+- name: Mount config for /var
+  ansible.posix.mount:
+    path: /var
+    src: "UUID={{ ansible_facts.devices.sdb.partitions.sdb2.uuid }}"
+    fstype: ext4
+    opts: "defaults"
+    dump: 0
+    passno: 2
+    state: mounted
+
+- name: Mount config for /var/log
+  ansible.posix.mount:
+    path: /var/log
+    src: "UUID={{ ansible_facts.devices.sdb.partitions.sdb3.uuid }}"
+    fstype: ext4
+    opts: "defaults"
+    dump: 0
+    passno: 2
+    state: mounted
+
+- name: Mount config for /var/log/audit
+  ansible.posix.mount:
+    path: /var/log/audit
+    src: "UUID={{ ansible_facts.devices.sdb.partitions.sdb4.uuid }}"
+    fstype: ext4
+    opts: "defaults"
+    dump: 0
+    passno: 2
+    state: mounted
+
+
+- name: Mount config for /var/tmp
+  ansible.posix.mount:
+    path: /var/tmp
+    src: "UUID={{ ansible_facts.devices.sdb.partitions.sdb5.uuid }}"
+    fstype: ext4
+    opts: "defaults,noexec,nodev,nosuid"
+    dump: 0
+    passno: 2
+    state: mounted
+
+- name: Set 1777 on /var/tmp
+  ansible.builtin.file:
+    path: /var/tmp
+    mode: '1777'
+    state: directory
