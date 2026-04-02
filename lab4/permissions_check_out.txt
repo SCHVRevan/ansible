@@ -1,0 +1,30 @@
+
+PLAY [Permissions check] *******************************************************
+
+TASK [UMASK check (/etc/login.defs)] *******************************************
+ok: [vTestPC003]
+
+TASK [Check orgnm.sh] **********************************************************
+ok: [vTestPC003]
+
+TASK [Check DIR_MODE in /etc/adduser.conf] *************************************
+ok: [vTestPC003]
+
+TASK [Check /var/log files permissions] ****************************************
+ok: [vTestPC003]
+
+TASK [Check /var/log directories permissions] **********************************
+ok: [vTestPC003]
+
+TASK [Show result] *************************************************************
+ok: [vTestPC003] => 
+  msg:
+  - 'ok: UMASK 027: '
+  - 'ok: orgnm: '
+  - 'ok: DIR_MODE 0700'
+  - 'ok: /var/log files permissions'
+  - 'ok: /var/log dirs permissions'
+
+PLAY RECAP *********************************************************************
+vTestPC003                 : ok=6    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

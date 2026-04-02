@@ -1,0 +1,25 @@
+
+PLAY [Useless filesystems check] ***********************************************
+
+TASK [Check if blacklist file exists] ******************************************
+ok: [vTestPC002]
+
+TASK [Check blacklist rules] ***************************************************
+ok: [vTestPC002] => (item=cramfs)
+ok: [vTestPC002] => (item=freevxfs)
+ok: [vTestPC002] => (item=jffs2)
+ok: [vTestPC002] => (item=hfs)
+ok: [vTestPC002] => (item=hfsplus)
+ok: [vTestPC002] => (item=squashfs)
+
+TASK [Check if modules are currently loaded] ***********************************
+ok: [vTestPC002] => (item=cramfs)
+ok: [vTestPC002] => (item=freevxfs)
+ok: [vTestPC002] => (item=jffs2)
+ok: [vTestPC002] => (item=hfs)
+ok: [vTestPC002] => (item=hfsplus)
+ok: [vTestPC002] => (item=squashfs)
+
+PLAY RECAP *********************************************************************
+vTestPC002                 : ok=3    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

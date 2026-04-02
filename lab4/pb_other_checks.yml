@@ -1,0 +1,58 @@
+---
+- name: Permissions check
+  hosts: vTestPC003
+  become: true
+  gather_facts: false
+  check_mode: true
+
+  tasks:
+    - name: UMASK check (/etc/login.defs)
+      ansible.builtin.lineinfile:
+        path: /etc/login.defs
+        regexp: '^UMASK\s+027'
+        line: 'UMASK 027'
+        state: absent
+      register: umask_check
+      changed_when: false
+
+    - name: Check orgnm.sh
+      ansible.builtin.lineinfile:
+        path: /etc/profile.d/orgnm.sh
+        regexp: '^umask\s+027'
+        line: 'umask 027'
+        state: absent
+      register: orgnm_check
+      changed_when: false
+
+    - name: Check DIR_MODE in /etc/adduser.conf
+      ansible.builtin.lineinfile:
+        path: /etc/adduser.conf
+        regexp: '^DIR_MODE=0700'
+        line: 'DIR_MODE=0700'
+        state: absent
+      register: dirmode_check
+      changed_when: false
+
+    - name: Check /var/log files permissions
+      ansible.builtin.shell: find /var/log -type f \( -perm /g+wx,o+rwx \)
+
+      register: log_files_check
+      # failed_when: log_files_check.stdout | int > 0
+      changed_when: false
+      check_mode: false
+
+    - name: Check /var/log directories permissions
+      ansible.builtin.shell: find /var/log -type d \( -perm /g+w,o+rwx \)
+      register: log_dirs_check
+      # failed_when: log_dirs_check.stdout | int > 0
+      changed_when: false
+      check_mode: false
+
+    - name: Show result
+      ansible.builtin.debug:
+        msg: 
+          - "{{ 'ok' if (umask_check.found | default(0) > 0) else 'Warning: not set' }}: UMASK 027: "
+          - "{{ 'ok' if (orgnm_check.found | default(0) > 0) else 'Warning: not set' }}: orgnm: "
+          - "{{ 'ok' if (dirmode_check.found | default(0) > 0) else 'Warning: not set' }}: DIR_MODE 0700"
+          - "{{ 'ok' if (log_files_check.stdout | default(1) | int == 0) else 'Warning: you need to revoke some rights' }}: /var/log files permissions"
+          - "{{ 'ok' if (log_dirs_check.stdout | default(1) | int == 0) else 'Warning: you need to revoke some rights' }}: /var/log dirs permissions"

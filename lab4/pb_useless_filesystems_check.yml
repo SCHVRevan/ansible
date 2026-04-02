@@ -1,0 +1,37 @@
+---
+- name: Useless filesystems check
+  hosts: vTestPC002
+  become: true
+  gather_facts: false
+  check_mode: true
+
+  vars:
+    useless_fs:
+      [cramfs, freevxfs, jffs2, hfs, hfsplus, squashfs]
+
+  tasks:
+    - name: Check if blacklist file exists
+      ansible.builtin.stat:
+        path: /etc/modprobe.d/fs-blacklist.conf
+      register: blacklist_file
+
+    - name: Check blacklist rules
+      ansible.builtin.lineinfile:
+        path: /etc/modprobe.d/fs-blacklist.conf
+        regexp: "^install {{ item }}"
+        line: "install {{ item }} /bin/true"
+        state: present
+      loop: "{{ useless_fs }}"
+      register: fs_check
+      failed_when: false
+      changed_when: false
+      when: blacklist_file.stat.exists
+
+    - name: Check if modules are currently loaded
+      ansible.builtin.command:
+        cmd: lsmod | grep -q '^{{ item }}'
+      loop: "{{ useless_fs }}"
+      register: lsmod_check
+      failed_when: lsmod_check.rc == 0
+      changed_when: false
+      check_mode: false

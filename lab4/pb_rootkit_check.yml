@@ -1,0 +1,23 @@
+---
+- name: Rootkits check
+  hosts: vTestPC003
+  become: true
+  gather_facts: false
+  check_mode: false
+
+  tasks:
+    - name: Install chkrootkit
+      ansible.builtin.apt:
+        name: chkrootkit
+        state: present
+        update_cache: true
+
+    - name: Start scan
+      ansible.builtin.command: chkrootkit
+      register: chkrootkit_output
+      changed_when: false
+      ignore_errors: true
+
+    - name: Show chkrootkit output
+      ansible.builtin.debug:
+        msg: "{{ chkrootkit_output.stdout_lines }}"
