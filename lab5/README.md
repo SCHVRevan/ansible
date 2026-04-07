@@ -35,7 +35,8 @@ ansible-playbook pb_fstec_recs_setup.yml --ask-become-pass | tee check_fstec_rec
 ```bash
 ansible-playbook pb_check_services.yml --ask-become-pass | tee check_services_state.txt
 ```
-Также были опробованы рекомендации по безопасной настройке systemd. Пример настройки службы secure shell (ограничением привилегий служб пренебрегаем, так как у службы имеется встроенный механизм privilege separation)  
+Также были опробованы рекомендации по безопасной настройке systemd.  
+Пример настройки службы secure shell (ограничением привилегий служб пренебрегаем, так как у службы имеется встроенный механизм privilege separation)  
 <p align="center">
   <img width="682" height="595" alt="ssh_conf" src="https://github.com/user-attachments/assets/88f702ad-d769-4b93-9ef9-6d3a8a6166e8" />
 </p>
