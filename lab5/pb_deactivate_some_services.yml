@@ -1,0 +1,26 @@
+---
+- name: Deactivate some services
+  hosts: vTestPC002
+  become: true
+  gather_facts: false
+  check_mode: true
+
+  vars:
+    # init_list: [autofs, avahi, dhcp, dns, ftp, ldap, nfs, nis, cups, samba, snmp, tftp, web, xinetd, mta]
+    services_list: [autofs, avahi-daemon, dhcpd, named, vsftpd, slapd, nfs-server, nis, cups,
+                    smbd, snmpd, tftp, httpd, xinetd, postfix, exim4, sendmail, opensmtpd]
+    # Хорошо бы проверять MTA по 25 порту, но ведь службе порт можно переопределить, поэтому проверяем некоторые из существующих MTA
+
+  tasks:
+    - name: Get services facts
+      ansible.builtin.service_facts:
+
+    - name: Stop and disable active services
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: stopped
+        enabled: false  # no autostart
+      loop: "{{ services_list }}"
+      when:
+        - services[item + '.service'] is defined
+        - services[item + '.service']['state'] == 'running'

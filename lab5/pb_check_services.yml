@@ -1,0 +1,31 @@
+---
+- name: Check for inactive services
+  hosts: vTestPC002
+  become: true
+  gather_facts: false
+  check_mode: true
+
+  vars:
+    # init_list: [autofs, avahi, dhcp, dns, ftp, ldap, nfs, nis, cups, samba, snmp, tftp, web, xinetd, mta]
+    services_list: [autofs, avahi-daemon, dhcpd, named, vsftpd, slapd, nfs-server, nis, cups,
+                    smbd, snmpd, tftp, httpd, xinetd, postfix, exim4, sendmail, opensmtpd]
+    # Хорошо бы проверять MTA по 25 порту, но ведь службе порт можно переопределить, поэтому проверяем некоторые из существующих MTA
+
+  tasks:
+    - name: Get services facts
+      ansible.builtin.service_facts:
+
+    - name: Check services
+      ansible.builtin.debug:
+        msg: |
+          {% set state = services[item + '.service']['state'] | default('not installed') %}
+          {% if state == 'running' %}
+          {% set _ = running_services.append(item) %}
+          Warning: {{ item }} {{ state }}
+          {% else %}
+          Ok: {{ item }} {{ state }}
+          {% endif %}
+      loop: "{{ services_list }}"
+      register: service_check_results
+
+      # Не стал делать вывод результата, будем полагаться на grep

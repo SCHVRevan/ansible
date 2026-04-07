@@ -1,0 +1,35 @@
+
+PLAY [Ansible fstec kernel recommendations setup] ******************************
+
+TASK [Apply sysctl hardening settings] *****************************************
+ok: [vTestPC002] => (item={'key': 'kernel.dmesg_restrict', 'value': 1})
+ok: [vTestPC002] => (item={'key': 'kernel.kptr_restrict', 'value': 2})
+ok: [vTestPC002] => (item={'key': 'net.core.bpf_jit_harden', 'value': 2})
+ok: [vTestPC002] => (item={'key': 'kernel.perf_event_paranoid', 'value': 3})
+ok: [vTestPC002] => (item={'key': 'kernel.kexec_load_disabled', 'value': 1})
+ok: [vTestPC002] => (item={'key': 'user.max_user_namespaces', 'value': 0})
+ok: [vTestPC002] => (item={'key': 'kernel.unprivileged_bpf_disabled', 'value': 1})
+ok: [vTestPC002] => (item={'key': 'vm.unprivileged_userfaultfd', 'value': 0})
+ok: [vTestPC002] => (item={'key': 'dev.tty.ldisc_autoload', 'value': 0})
+ok: [vTestPC002] => (item={'key': 'vm.mmap_min_addr', 'value': 4096})
+ok: [vTestPC002] => (item={'key': 'kernel.randomize_va_space', 'value': 2})
+ok: [vTestPC002] => (item={'key': 'kernel.yama.ptrace_scope', 'value': 3})
+ok: [vTestPC002] => (item={'key': 'fs.protected_symlinks', 'value': 1})
+ok: [vTestPC002] => (item={'key': 'fs.protected_hardlinks', 'value': 1})
+ok: [vTestPC002] => (item={'key': 'fs.protected_fifos', 'value': 2})
+ok: [vTestPC002] => (item={'key': 'fs.protected_regular', 'value': 2})
+ok: [vTestPC002] => (item={'key': 'fs.suid_dumpable', 'value': 0})
+
+TASK [Get current grub params] *************************************************
+ok: [vTestPC002]
+
+TASK [Update GRUB_CMDLINE_LINUX_DEFAULT] ***************************************
+ok: [vTestPC002]
+
+TASK [Show boot parameters status] *********************************************
+ok: [vTestPC002] => 
+  msg: 'Ok: boot parameters is correct'
+
+PLAY RECAP *********************************************************************
+vTestPC002                 : ok=4    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

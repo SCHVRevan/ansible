@@ -1,0 +1,30 @@
+
+PLAY [Deactivate some services] ************************************************
+
+TASK [Get services facts] ******************************************************
+ok: [vTestPC002]
+
+TASK [Stop and disable active services] ****************************************
+skipping: [vTestPC002] => (item=autofs) 
+skipping: [vTestPC002] => (item=avahi-daemon) 
+skipping: [vTestPC002] => (item=dhcpd) 
+skipping: [vTestPC002] => (item=named) 
+skipping: [vTestPC002] => (item=vsftpd) 
+skipping: [vTestPC002] => (item=slapd) 
+skipping: [vTestPC002] => (item=nfs-server) 
+skipping: [vTestPC002] => (item=nis) 
+skipping: [vTestPC002] => (item=cups) 
+skipping: [vTestPC002] => (item=smbd) 
+skipping: [vTestPC002] => (item=snmpd) 
+skipping: [vTestPC002] => (item=tftp) 
+skipping: [vTestPC002] => (item=httpd) 
+skipping: [vTestPC002] => (item=xinetd) 
+skipping: [vTestPC002] => (item=postfix) 
+skipping: [vTestPC002] => (item=exim4) 
+skipping: [vTestPC002] => (item=sendmail) 
+skipping: [vTestPC002] => (item=opensmtpd) 
+skipping: [vTestPC002]
+
+PLAY RECAP *********************************************************************
+vTestPC002                 : ok=1    changed=0    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   
+

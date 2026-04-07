@@ -1,0 +1,78 @@
+---
+- name: Ansible fstec kernel recommendations setup
+  hosts: vTestPC002
+  become: true
+  gather_facts: false
+  check_mode: true
+
+  vars:
+    sysctl_settings:
+      kernel.dmesg_restrict: 1
+      kernel.kptr_restrict: 2
+      net.core.bpf_jit_harden: 2
+      kernel.perf_event_paranoid: 3
+      kernel.kexec_load_disabled: 1
+      user.max_user_namespaces: 0
+      kernel.unprivileged_bpf_disabled: 1
+      vm.unprivileged_userfaultfd: 0
+      dev.tty.ldisc_autoload: 0
+      vm.mmap_min_addr: 4096
+      kernel.randomize_va_space: 2
+      kernel.yama.ptrace_scope: 3
+      fs.protected_symlinks: 1
+      fs.protected_hardlinks: 1
+      fs.protected_fifos: 2
+      fs.protected_regular: 2
+      fs.suid_dumpable: 0
+
+    kernel_boot_params:
+      - "init_on_alloc=1"
+      - "slab_nomerge"
+      - "iommu=force"
+      - "iommu.strict=1"
+      - "iommu.passthrough=0"
+      - "randomize_kstack_offset=1"
+      - "mitigations=auto,nosmt"
+      - "vsyscall=none"
+      - "debugfs=no-mount"
+      - "tsx=off"
+
+  tasks:
+    # this module create file with root:root and 0644 by default (if I got it right)
+    - name: Apply sysctl hardening settings
+      ansible.posix.sysctl:
+        name: "{{ item.key }}"
+        value: "{{ item.value }}"
+        state: present
+        sysctl_file: /etc/sysctl.d/aa-kernel-hardening.conf
+      loop: "{{ sysctl_settings | dict2items }}"
+      notify: Reload_sysctl
+
+
+    - name: Get current grub params
+      ansible.builtin.shell:
+        cmd: grep -Po '^GRUB_CMDLINE_LINUX_DEFAULT="\K[^"]+' /etc/default/grub 2>/dev/null || echo ""
+      register: current_grub_params
+      changed_when: false
+      check_mode: false
+
+    - name: Update GRUB_CMDLINE_LINUX_DEFAULT
+      ansible.builtin.lineinfile:
+        path: /etc/default/grub
+        regexp: '^GRUB_CMDLINE_LINUX_DEFAULT='
+        line: "GRUB_CMDLINE_LINUX_DEFAULT=\"{{ current_grub_params.stdout.split() | difference(kernel_boot_params) | union(kernel_boot_params) | join(' ') }}\""
+      register: grub_file_updated
+      notify: Regenerate_grub
+
+    - name: Show boot parameters status
+      ansible.builtin.debug:
+        msg: "{{ 'Kernel boot parameters updated (reboot required)' if grub_file_updated.changed else 'Ok: boot parameters is correct' }}"
+
+  handlers:
+    - name: Reload_sysctl
+      ansible.builtin.command:
+        cmd: sysctl --system
+
+    - name: Regenerate_grub
+      ansible.builtin.command:
+        cmd: "{{ 'update-grub' }}"

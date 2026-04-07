@@ -1,0 +1,65 @@
+
+PLAY [Check for inactive services] *********************************************
+
+TASK [Get services facts] ******************************************************
+ok: [vTestPC002]
+
+TASK [Check services] **********************************************************
+ok: [vTestPC002] => (item=autofs) => 
+  msg: |-
+    Ok: autofs not installed
+ok: [vTestPC002] => (item=avahi-daemon) => 
+  msg: |-
+    Ok: avahi-daemon stopped
+ok: [vTestPC002] => (item=dhcpd) => 
+  msg: |-
+    Ok: dhcpd not installed
+ok: [vTestPC002] => (item=named) => 
+  msg: |-
+    Ok: named not installed
+ok: [vTestPC002] => (item=vsftpd) => 
+  msg: |-
+    Ok: vsftpd not installed
+ok: [vTestPC002] => (item=slapd) => 
+  msg: |-
+    Ok: slapd not installed
+ok: [vTestPC002] => (item=nfs-server) => 
+  msg: |-
+    Ok: nfs-server not installed
+ok: [vTestPC002] => (item=nis) => 
+  msg: |-
+    Ok: nis not installed
+ok: [vTestPC002] => (item=cups) => 
+  msg: |-
+    Ok: cups stopped
+ok: [vTestPC002] => (item=smbd) => 
+  msg: |-
+    Ok: smbd not installed
+ok: [vTestPC002] => (item=snmpd) => 
+  msg: |-
+    Ok: snmpd not installed
+ok: [vTestPC002] => (item=tftp) => 
+  msg: |-
+    Ok: tftp not installed
+ok: [vTestPC002] => (item=httpd) => 
+  msg: |-
+    Ok: httpd not installed
+ok: [vTestPC002] => (item=xinetd) => 
+  msg: |-
+    Ok: xinetd not installed
+ok: [vTestPC002] => (item=postfix) => 
+  msg: |-
+    Ok: postfix not installed
+ok: [vTestPC002] => (item=exim4) => 
+  msg: |-
+    Ok: exim4 not installed
+ok: [vTestPC002] => (item=sendmail) => 
+  msg: |-
+    Ok: sendmail not installed
+ok: [vTestPC002] => (item=opensmtpd) => 
+  msg: |-
+    Ok: opensmtpd not installed
+
+PLAY RECAP *********************************************************************
+vTestPC002                 : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+
