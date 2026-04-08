@@ -1,3 +1,4 @@
--w /usr/bin/sudo -p x -k sudo_exec
+-a always,exit -F arch=b64 -S chmod,fchmod,fchmodat -F key=perm_mod
+-a always,exit -F arch=b64 -S chown,fchown,fchmodat -F key=perm_mod
 -w /etc/ssh/sshd_config -p wa -k sshd_config
--a always,exit -F arch=b64 -S chmod,chown -F key=perm_mod
+-w /usr/bin/sudo -p x -k sudo_exec
