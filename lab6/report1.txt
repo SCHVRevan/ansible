@@ -1,0 +1,3 @@
+-w /usr/bin/sudo -p x -k sudo_exec
+-w /etc/ssh/sshd_config -p wa -k sshd_config
+-a always,exit -F arch=b64 -S chmod,chown -F key=perm_mod
