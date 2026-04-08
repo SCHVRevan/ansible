@@ -39,6 +39,6 @@ grep -E "perm_mod|sudo_exec|sshd_config" /var/log/audit/audit.log
 ```
 После чего произведён ручной отбор по времени записей, а также исключена запись с type=PATH.  
 Результаты представлены в [report2.txt](./report2.txt).  
-- 1-2 строка соответствуют обработке команды sudo ls -l  
-- 3-6 строки соответствуют обработке echo "# Dad jokes starts here: " | sudo tee /etc/ssh/sshd_conf  
-- 7 строка соответствует обработке chmod 0775 ansible_labs/
+- 1-2 строка соответствуют обработке команды ```sudo ls -l```  
+- 3-6 строки соответствуют обработке ```echo "# Dad jokes starts here: " | sudo tee /etc/ssh/sshd_conf```  
+- 7 строка соответствует обработке ```chmod 0775 ansible_labs/```
