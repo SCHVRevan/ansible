@@ -1,0 +1,70 @@
+*************************** 1. row ***************************
+ Hostname: vTestPC002
+ Facility: daemon
+ Priority: info
+ Severity: 6
+  Message:  Started anacron.service - Run anacron jobs.
+Timestamp: 2026-04-11 22:31:06
+*************************** 2. row ***************************
+ Hostname: vTestPC002
+ Facility: cron
+ Priority: notice
+ Severity: 5
+  Message:  Anacron 2.3 started on 2026-04-11
+Timestamp: 2026-04-11 22:31:06
+*************************** 3. row ***************************
+ Hostname: vTestPC002
+ Facility: cron
+ Priority: notice
+ Severity: 5
+  Message:  Normal exit (0 jobs run)
+Timestamp: 2026-04-11 22:31:06
+*************************** 4. row ***************************
+ Hostname: vTestPC002
+ Facility: daemon
+ Priority: info
+ Severity: 6
+  Message:  anacron.service: Deactivated successfully.
+Timestamp: 2026-04-11 22:31:06
+*************************** 5. row ***************************
+ Hostname: vTestPC002
+ Facility: user
+ Priority: notice
+ Severity: 5
+  Message:  Hello there
+Timestamp: 2026-04-11 22:31:14
+*************************** 6. row ***************************
+ Hostname: vTestPC003
+ Facility: user
+ Priority: notice
+ Severity: 5
+  Message:  General Kenobi
+Timestamp: 2026-04-11 22:31:16
+*************************** 7. row ***************************
+ Hostname: vTestPC001
+ Facility: daemon
+ Priority: info
+ Severity: 6
+  Message:  Started anacron.service - Run anacron jobs.
+Timestamp: 2026-04-11 22:33:35
+*************************** 8. row ***************************
+ Hostname: vTestPC001
+ Facility: cron
+ Priority: notice
+ Severity: 5
+  Message:  Anacron 2.3 started on 2026-04-11
+Timestamp: 2026-04-11 22:33:35
+*************************** 9. row ***************************
+ Hostname: vTestPC001
+ Facility: cron
+ Priority: notice
+ Severity: 5
+  Message:  Normal exit (0 jobs run)
+Timestamp: 2026-04-11 22:33:35
+*************************** 10. row ***************************
+ Hostname: vTestPC001
+ Facility: daemon
+ Priority: info
+ Severity: 6
+  Message:  anacron.service: Deactivated successfully.
+Timestamp: 2026-04-11 22:33:35
