@@ -1,0 +1,92 @@
+---
+- name: Configure journald + rsyslog clients
+  hosts: vTestPC002
+  become: true
+  gather_facts: false
+  check_mode: false
+
+  vars:
+    log_server: "10.0.47.10"
+    log_port: "514"
+
+  tasks:
+    - name: Configure journald
+      ansible.builtin.lineinfile:
+        path: /etc/systemd/journald.conf
+        regexp: '^#?\s*{{ item.key }}=.*'
+        line: "{{ item.key }}={{ item.value }}"
+      loop:
+        - { key: "Storage", value: "persistent" }
+        - { key: "Compress", value: "yes" }
+        - { key: "MaxFileSize", value: "100M" }
+        - { key: "RateLimitIntervalSec", value: "30s" }
+        - { key: "RateLimitBurst", value: "1000" }
+        - { key: "ForwardToSyslog", value: "yes" }
+        - { key: "MaxRetentionSec", value: "1week" }
+      notify: Restart journald
+
+    - name: Install rsyslog
+      ansible.builtin.apt:
+        name: rsyslog
+        state: present
+        update_cache: true
+
+    - name: Ensure rsyslog modules are loaded
+      ansible.builtin.lineinfile:
+        path: /etc/rsyslog.conf
+        regexp: '^#?\s*module\(load="{{ item }}"\)'
+        line: 'module(load="{{ item }}")'
+        insertafter: '^#### MODULES ####'
+      loop:
+        - imuxsock
+        - imklog
+        - immark
+      notify: Restart rsyslog
+
+    - name: Create rsyslog rules configuration
+      ansible.builtin.copy:
+        dest: /etc/rsyslog.d/corp.rsyslog.rules.conf
+        content: |
+          *.emerg :omusrmsg:*
+
+          mail.* -/var/log/mail
+
+          auth,authpriv.* /var/log/secure
+
+          mail.info -/var/log/mail.info
+          mail.warning -/var/log/mail.warn
+          mail.err /var/log/mail.err
+
+          news.crit -/var/log/news/news.crit
+          news.err -/var/log/news/news.err
+          news.notice -/var/log/news/news.notice
+
+          *.=warning;*.=err -/var/log/warn
+
+          *.crit -/var/log/warn.log
+          *.*;mail.none;news.none -/var/log/messages.log
+
+          *.* @@{{ log_server }}:{{ log_port }}
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart rsyslog
+
+    - name: Validate rsyslog configuration
+      ansible.builtin.command: rsyslogd -N 1
+      register: rsyslog_validate
+      changed_when: false
+      failed_when: "'error' in rsyslog_validate.stderr"
+
+  handlers:
+    - name: Restart journald
+      ansible.builtin.systemd:
+        name: systemd-journald
+        state: restarted
+        daemon_reload: true
+
+    - name: Restart rsyslog
+      ansible.builtin.systemd:
+        name: rsyslog
+        state: restarted
+        enabled: true
