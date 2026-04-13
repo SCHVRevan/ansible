@@ -1,0 +1,192 @@
+---
+- name: Configure auditd
+  hosts: vTestPC002
+  become: true
+  gather_facts: false
+  check_mode: false
+
+  tasks:
+    - name: Install auditd
+      ansible.builtin.apt:
+        name:
+          - auditd
+          - audispd-plugins
+        state: present
+        update_cache: true
+
+    - name: Check audit group
+      ansible.builtin.group:
+        name: audit
+        state: present
+
+    - name: Auditd conf
+      ansible.builtin.lineinfile:
+        path: /etc/audit/auditd.conf
+        regexp: '^#?\s*{{ item.key }} ='
+        line: '{{ item.key }} = {{ item.value }}'
+      loop:
+        - { key: 'log_file', value: '/var/log/audit/audit.log' }
+        - { key: 'log_group', value: 'audit' }
+        - { key: 'num_logs', value: '5' }
+        - { key: 'log_format', value: 'ENRICHED' }
+        - { key: 'name_format', value: 'NUMERIC' }
+        - { key: 'max_log_file', value: '100' }
+        - { key: 'max_log_file_action', value: 'ROTATE' }
+        - { key: 'space_left', value: '75' }
+        - { key: 'space_left_action', value: 'SYSLOG' }
+        - { key: 'admin_space_left', value: '50' }
+        - { key: 'admin_space_left_action', value: 'SUSPEND' }
+        - { key: 'disk_full_action', value: 'SUSPEND' }
+        - { key: 'disk_error_action', value: 'SUSPEND' }
+      notify: Restart auditd
+
+    - name: Create auditd rules
+      ansible.builtin.copy:
+        dest: /etc/audit/rules.d/corp.rules
+        content: |
+          # Permissions and time
+          -a always,exit -F arch=b64 -S chmod -S fchmod -S fchmodat -F auid>=1000 -F auid!=4294967295 -k perm_mod
+          -a always,exit -F arch=b32 -S chmod -S fchmod -S fchmodat -F auid>=1000 -F auid!=4294967295 -k perm_mod
+          -a always,exit -F arch=b64 -S chown -S fchown -S fchownat -S lchown -F auid>=1000 -F auid!=4294967295 -k perm_mod
+          -a always,exit -F arch=b32 -S chown -S fchown -S fchownat -S lchown -F auid>=1000 -F auid!=4294967295 -k perm_mod
+          -a always,exit -F arch=b64 -S setxattr -S lsetxattr -S fsetxattr -S removexattr -S lremovexattr -S fremovexattr -F auid>=1000 -F auid!=4294967295 -k perm_mod
+          -a always,exit -F arch=b32 -S setxattr -S lsetxattr -S fsetxattr -S removexattr -S lremovexattr -S fremovexattr -F auid>=1000 -F auid!=4294967295 -k perm_mod
+
+          -a always,exit -F arch=b64 -S adjtimex -S settimeofday -k api_time
+          -a always,exit -F arch=b32 -S adjtimex -S settimeofday -S stime -k api_time
+          -a always,exit -F arch=b64 -S clock_settime -k api_time
+          -a always,exit -F arch=b32 -S clock_settime -k api_time
+          -w /etc/localtime -p wa -k api_time
+
+          # Groups and users modification
+          -w /etc/group -p wa -k etc_modify_group
+          -w /etc/gshadow -p wa -k etc_modify_group
+          -w /etc/passwd -p wa -k etc_modify_passwd
+          -w /etc/shadow -p wa -k etc_modify_passwd
+          -w /etc/security/opasswd -p wa -k etc_modify_opasswd
+          -w /etc/sudoers -p wa -k etc_modify_sudoers
+          -w /etc/sudoers.d/ -p wa -k etc_modify_sudoers
+
+          # Logs and configs access control
+          -w /var/log -p rwa -F euid>=1000 -k var_log_user_modify
+          -w /var/log -p rwa -F euid=0 -F auid>=1000 -F auid!=4294967295 -k var_log_admin_modify
+          -w /var/log/audit/ -p rwa -k auditlog
+          -w /etc/audit/ -p wa -k auditconfig
+          -w /etc/libaudit.conf -p wa -k auditconfig
+          -w /etc/default/auditd -p wa -k audispconfig
+          -w /etc/login.defs -p wa -k etc_modify_login
+          -w /etc/securetty -p wa -k etc_modify_login
+          -w /etc/inittab -p wa -k etc_modify_init
+          -w /etc/init.d/ -p wa -k etc_modify_init
+          -w /etc/init/ -p wa -k etc_modify_init
+          -w /etc/systemd/ -p wa -k etc_modify_systemd
+          -w /etc/ssh/sshd_config -p wa -k etc_modify_sshd
+          -w /etc/krb5.keytab -p wa -k etc_modify_krb5
+          -w /etc/krb5.conf -p wa -k etc_modify_krb5
+          -w /etc/sssd/sssd.conf -p wa -k etc_modify_sssd
+          -w /var/lib/sss/db/ -p wa -k etc_modify_sssd_cache
+
+          # Kernel and boot
+          -w /etc/sysctl.conf -p wa -k etc_modify_sysctl
+          -w /boot -p wa -k boot_modify
+          -w /etc/modprobe.conf -p wa -k etc_modify_modprobe
+          -w /etc/pam.d/ -p wa -k etc_modify_pam
+          -w /etc/security/limits.conf -p wa -k etc_modify_pam
+          -w /etc/security/pam_env.conf -p wa -k etc_modify_pam
+          -w /etc/security/namespace.conf -p wa -k etc_modify_pam
+          -w /etc/security/namespace.init -p wa -k etc_modify_pam
+
+          # Syslog configs
+          -w /etc/syslog.conf -p wa -k etc_modify_syslogconfig
+          -w /etc/rsyslog.conf -p wa -k etc_modify_rsyslogconfig
+          -w /etc/syslog-ng/ -p wa -k etc_modify_syslogconfig
+          -w /etc/syslog-ng/conf.d/ -p wa -k etc_modify_syslogconfig
+          -w /sbin/auditctl -p x -k audittools
+          -w /sbin/auditd -p x -k audittools
+          -w /home -p rwa -k home_access
+          -w /root -p rwa -k home_access
+
+          # Cron jobs and binary libraries
+          -w /var/spool/cron -p rwa -C euid!=obj_uid -k cron_modify_evil
+          -w /var/spool/cron -p wa -k cron_modify
+          -w /etc/cron.allow -p wa -k cron_modify
+          -w /etc/cron.deny -p wa -k cron_modify
+          -w /etc/cron.d/ -p wa -k cron_modify
+          -w /etc/cron.daily/ -p wa -k cron_modify
+          -w /etc/cron.hourly/ -p wa -k cron_modify
+          -w /etc/cron.monthly/ -p wa -k cron_modify
+          -w /etc/cron.weekly/ -p wa -k cron_modify
+          -w /etc/crontab -p wa -k cron_modify
+          -w /var/spool/cron/crontabs/ -p wa -k cron_modify
+
+          -w /bin -p wa -k bin_modify
+          -w /usr/bin -p wa -k bin_modify
+          -w /sbin -p wa -k bin_modify
+          -w /usr/sbin -p wa -k bin_modify
+          -w /usr/local/bin -p wa -k bin_modify
+          -w /usr/local/sbin -p wa -k bin_modify
+          -w /usr/libexec -p wa -k bin_modify
+          -w /lib -p wa -k lib_modify
+          -w /lib64 -p wa -k lib_modify
+          -w /usr/lib -p wa -k lib_modify
+          -w /usr/lib64 -p wa -k lib_modify
+
+          # Kernel modules, ptrace, Login, logout
+          -w /sbin/insmod -p x -k modules
+          -w /sbin/rmmod -p x -k modules
+          -w /sbin/modprobe -p x -k modules
+          -a always,exit -F arch=b64 -S init_module -S finit_module -S delete_module -k modules
+          -a always,exit -F arch=b32 -S init_module -S finit_module -S delete_module -k modules
+
+          -a always,exit -F arch=b32 -S ptrace -k api_ptrace
+          -a always,exit -F arch=b64 -S ptrace -k api_ptrace
+
+          -w /var/log/faillog -p wa -k logins
+          -w /var/log/lastlog -p wa -k logins
+          -w /var/log/tallylog -p wa -k logins
+
+          # Mounts, delete, software_mgmt
+          -a always,exit -F arch=b64 -S mount -F auid>=1000 -F auid!=4294967295 -k mounts
+          -a always,exit -F arch=b32 -S mount -F auid>=1000 -F auid!=4294967295 -k mounts
+
+          -a always,exit -F arch=b64 -S unlink -S unlinkat -S rename -S renameat -F auid>=1000 -F auid!=4294967295 -k delete
+          -a always,exit -F arch=b32 -S unlink -S unlinkat -S rename -S renameat -F auid>=1000 -F auid!=4294967295 -k delete
+
+          -w /usr/bin/apt -p x -k software_mgmt
+          -w /usr/bin/apt-get -p x -k software_mgmt
+          -w /usr/bin/dpkg -p x -k software_mgmt
+        owner: root
+        group: root
+        mode: '0600'
+      notify: Restart auditd
+
+    - name: Secure auditd files
+      ansible.builtin.file:
+        path: "{{ item }}"
+        owner: root
+        group: root
+        mode: '0600'
+      loop:
+        - /etc/audit/auditd.conf
+        - /etc/audit/rules.d/corp.rules
+        - /var/log/audit/
+
+    - name: Enable and start auditd
+      ansible.builtin.systemd:
+        name: auditd
+        enabled: true
+        state: started
+
+    # Can't use -e 2 in corp.rules (it can't upload rules from it)
+    # Tried to use additional file 99-lock_rules with -e 2, but it didn't work
+    # I don't see other options, so, let's do this. But we will need to use auditd -e 2 every system start
+    - name: Lock audit rules
+      ansible.builtin.command: auditctl -e 2
+      changed_when: false
+
+  handlers:
+    - name: Restart auditd
+      ansible.builtin.systemd:
+        name: auditd
+        state: restarted
+      notify: Lock audit rules
