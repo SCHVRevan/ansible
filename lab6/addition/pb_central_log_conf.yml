@@ -28,12 +28,12 @@
         - { key: "MaxRetentionSec", value: "1week" }
       notify: Restart journald
 
-    - name: Pre-configure MySQL to avoid interactive prompts
-      ansible.builtin.debconf:
-        name: rsyslog-mysql
-        question: rsyslog-mysql/auto-create-db
-        value: "false"
-        vtype: boolean
+    # - name: Pre-configure MySQL to avoid interactive prompts
+    #   ansible.builtin.debconf:
+    #     name: rsyslog-mysql
+    #     question: rsyslog-mysql/auto-create-db
+    #     value: "false"
+    #     vtype: boolean
 
     - name: Install rsyslog, mysql, etc.
       ansible.builtin.apt:
@@ -41,8 +41,11 @@
           - rsyslog
           - rsyslog-mysql
           - default-mysql-server
+          - python3-pymysql
         state: present
         update_cache: true
+      environment:
+        DEBIAN_FRONTEND: noninteractive
 
     - name: Ensure MySQL is running
       ansible.builtin.systemd:
@@ -61,7 +64,7 @@
         name: "{{ rsyslog_user }}"
         password: "{{ rsyslog_password }}"
         host: localhost
-        priv: "{{ rsyslog_db }}.*:INSERT"
+        priv: "{{ rsyslog_db }}.*:INSERT,SELECT"
         state: present
         login_unix_socket: /run/mysqld/mysqld.sock
 
@@ -70,7 +73,6 @@
         login_db: "{{ rsyslog_db }}"
         query: |
           CREATE TABLE IF NOT EXISTS logs (
-              id INT AUTO_INCREMENT PRIMARY KEY,
               Hostname VARCHAR(255),
               Facility VARCHAR(50),
               Priority VARCHAR(50),
@@ -98,7 +100,7 @@
         regexp: '^#?\s*module\(load="imudp"\)'
         line: 'module(load="imudp")'
         insertafter: '^#### MODULES ####'
-      notify: restart rsyslog
+      notify: Restart rsyslog
 
     - name: Configure UDP input
       ansible.builtin.lineinfile:
@@ -106,7 +108,7 @@
         regexp: '^#?\s*input\(type="imudp"'
         line: 'input(type="imudp" port="514")'
         insertafter: '^module\(load="imudp"\)'
-      notify: restart rsyslog
+      notify: Restart rsyslog
 
     - name: Load imtcp module
       ansible.builtin.lineinfile:
@@ -114,7 +116,7 @@
         regexp: '^#?\s*module\(load="imtcp"\)'
         line: 'module(load="imtcp")'
         insertafter: '^#### MODULES ####'
-      notify: restart rsyslog
+      notify: Restart rsyslog
 
     - name: Configure TCP input
       ansible.builtin.lineinfile:
@@ -122,13 +124,13 @@
         regexp: '^#?\s*input\(type="imtcp"'
         line: 'input(type="imtcp" port="514")'
         insertafter: '^module\(load="imtcp"\)'
-      notify: restart rsyslog
+      notify: Restart rsyslog
 
     - name: Remove default mysql.conf
       ansible.builtin.file:
         path: /etc/rsyslog.d/mysql.conf
         state: absent
-      notify: restart rsyslog
+      notify: Restart rsyslog
 
     - name: Create rsyslog rules configuration
       ansible.builtin.copy:
