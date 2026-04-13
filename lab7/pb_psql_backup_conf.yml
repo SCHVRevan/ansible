@@ -1,0 +1,41 @@
+---
+- name: Create backup directory
+  ansible.builtin.file:
+    path: "/var/backups/postgresql"
+    state: directory
+    owner: postgres
+    group: postgres
+    mode: '0750'
+
+- name: Deploy backup script
+  ansible.builtin.copy:
+    content: |
+      #!/bin/bash
+      # backup_postgres.sh
+      umask 077
+
+      DATE=$(date +%Y%m%d_%H%M%S)
+      BACKUP_DIR=/var/backups/postgresql
+      DB_NAME="{{ db_name }}"
+      USERNAME="postgres"
+
+      mkdir -p $BACKUP_DIR
+
+      pg_dump -U $USERNAME -d $DB_NAME | gzip > $BACKUP_DIR/${DB_NAME}_${DATE}.sql.gz
+
+      find $BACKUP_DIR -name "*.sql.gz" -mtime +7 -delete
+
+      echo "$(date): Backup created - ${DB_NAME}_${DATE}.sql.gz" >> $BACKUP_DIR/backup.log
+    dest: "/usr/local/bin/postgres_backup.sh"
+    owner: postgres
+    group: postgres
+    mode: '0750'
+
+- name: Schedule daily backup (2 AM)
+  ansible.builtin.cron:
+    name: "PostgreSQL daily backup"
+    minute: "0"
+    hour: "2"
+    user: postgres
+    job: "/usr/local/bin/postgres_backup.sh"
+    cron_file: postgres_backup

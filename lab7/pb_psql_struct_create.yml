@@ -1,0 +1,84 @@
+---
+- name: Remove password for postgres superuser
+  become_user: postgres
+  community.postgresql.postgresql_query:
+    port: "{{ postgres_port }}"
+    query: "ALTER ROLE postgres PASSWORD NULL;"
+
+- name: Create database
+  become_user: postgres
+  community.postgresql.postgresql_db:
+    name: "{{ db_name }}"
+    port: "{{ postgres_port }}"
+    state: present
+
+# here is some problem with idempotence
+# - name: Create readers group
+#   become_user: postgres
+#   community.postgresql.postgresql_query:
+#     port: "{{ postgres_port }}"
+#     db: "{{ db_name }}"
+#     query: "CREATE ROLE {{ group }} NOLOGIN;"
+#   register: create_role_result
+
+# Create and configure group
+- name: Create readers group
+  become_user: postgres
+  community.postgresql.postgresql_user:
+    port: "{{ postgres_port }}"
+    name: "{{ group }}"
+    state: present
+    role_attr_flags: NOLOGIN
+    login_db: "{{ db_name }}"
+
+- name: Grant CONNECT on database to readers group
+  become_user: postgres
+  community.postgresql.postgresql_query:
+    port: "{{ postgres_port }}"
+    db: "{{ db_name }}"
+    query: "GRANT CONNECT ON DATABASE {{ db_name }} TO {{ group }};"
+
+- name: Grant USAGE on schema public to readers group
+  become_user: postgres
+  community.postgresql.postgresql_query:
+    port: "{{ postgres_port }}"
+    db: "{{ db_name }}"
+    query: "GRANT USAGE ON SCHEMA public TO {{ group }};"
+
+- name: Grant SELECT on all tables in schema public to readers group
+  become_user: postgres
+  community.postgresql.postgresql_privs:
+    port: "{{ postgres_port }}"
+    db: "{{ db_name }}"
+    privs: SELECT
+    type: table
+    objs: ALL_IN_SCHEMA
+    schema: public
+    role: "{{ group }}"
+    state: present
+
+# same problem (idempotence)
+# - name: Create user
+#   become_user: postgres
+#   community.postgresql.postgresql_query:
+#     port: "{{ postgres_port }}"
+#     db: "{{ db_name }}"
+#     query: "CREATE ROLE {{ user }} WITH LOGIN PASSWORD 'pwd';"
+#   ignore_errors: true
+
+# Create user
+- name: Create user
+  become_user: postgres
+  community.postgresql.postgresql_user:
+    port: "{{ postgres_port }}"
+    name: "{{ user }}"
+    password: "123_qwe"
+    encrypted: true
+  no_log: true
+
+- name: Add user to readers group
+  become_user: postgres
+  community.postgresql.postgresql_query:
+    port: "{{ postgres_port }}"
+    db: "{{ db_name }}"
+    query: "GRANT {{ group }} TO {{ user }};"

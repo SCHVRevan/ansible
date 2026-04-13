@@ -1,0 +1,24 @@
+---
+- name: Create pgaudit extension
+  become_user: postgres
+  community.postgresql.postgresql_query:
+    port: "{{ postgres_port }}"
+    db: "{{ db_name }}"
+    query: "CREATE EXTENSION IF NOT EXISTS pgaudit;"
+
+- name: Configure audit params
+  become_user: postgres
+  community.postgresql.postgresql_set:
+    port: "{{ postgres_port }}"
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+  loop:
+    - { key: 'pgaudit.log', value: 'read, write, ddl' }
+    - { key: 'pgaudit.log_relation', value: 'on' }
+    - { key: 'pgaudit.log_catalog', value: 'off' }
+    - { key: 'pgaudit.log_parameter', value: 'off' }
+    - { key: 'log_connections', value: 'on' }
+    - { key: 'log_disconnections', value: 'on' }
+    - { key: 'log_duration', value: 'on' }
+    - { key: 'log_statement', value: 'mod' }
+  notify: Reload postgresql

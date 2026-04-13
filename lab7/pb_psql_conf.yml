@@ -1,0 +1,101 @@
+---
+- name: Configure PostgreSQL
+  hosts: vTestPC002
+  become: true
+  gather_facts: false
+  check_mode: false
+
+  vars:
+    postgres_version: "15"
+    postgres_port: 5452
+    db_name: "secure_db"
+    group: "readers"
+    user: "user01"
+    hba_file: "/etc/postgresql/{{ postgres_version }}/main/pg_hba.conf"
+    config_file: "/etc/postgresql/{{ postgres_version }}/main/postgresql.conf"
+    data_dir: "/var/lib/postgresql/{{ postgres_version }}/main"
+
+  tasks:
+    - name: Install PostgreSQL
+      ansible.builtin.apt:
+        name:
+          - postgresql-{{ postgres_version }}
+          - postgresql-{{ postgres_version }}-pgaudit
+          - python3-psycopg2
+        state: present
+        update_cache: true
+      notify: Restart postgresql
+
+    - name: Set perms on data dir
+      ansible.builtin.file:
+        path: "{{ data_dir }}"
+        owner: postgres
+        group: postgres
+        mode: '0700'
+        state: directory
+
+    - name: Set perms on config files
+      ansible.builtin.file:
+        path: "{{ item }}"
+        owner: postgres
+        group: postgres
+        mode: '0600'
+      loop:
+        - "{{ config_file }}"
+        - "{{ hba_file }}"
+
+    - name: Add pgaudit to shared_preload_libraries
+      ansible.builtin.lineinfile:
+        path: "{{ config_file }}"
+        regexp: "^#?shared_preload_libraries\\s*="
+        line: "shared_preload_libraries = 'pgaudit'"
+        state: present
+      notify: Restart postgresql
+
+    - name: Change PostgreSQL port
+      ansible.builtin.lineinfile:
+        path: "{{ config_file }}"
+        regexp: '^#?\s*port\s*='
+        line: "port = {{ postgres_port }}"
+        state: present
+      notify: Restart postgresql
+
+    - name: Change listen_addresses
+      ansible.builtin.lineinfile:
+        path: "{{ config_file }}"
+        regexp: '^#?\s*listen_addresses\s*='
+        line: "listen_addresses = '{{ ansible_host }}'"
+        state: present
+      notify: Restart postgresql
+
+    - name: Apply config changes
+      ansible.builtin.meta: flush_handlers
+
+    - name: Wait for PostgreSQL start
+      ansible.builtin.wait_for:
+        port: "{{ postgres_port }}"
+        host: "{{ ansible_host }}"
+        timeout: 15
+
+    - name: Create db, roles and users
+      ansible.builtin.import_tasks: pb_psql_struct_create.yml
+
+    - name: DB hardening
+      ansible.builtin.import_tasks: pb_psql_hardening.yml
+
+    - name: Audit conf (logging)
+      ansible.builtin.import_tasks: pb_psql_audit_conf.yml
+
+    - name: Backup setup
+      ansible.builtin.import_tasks: pb_psql_backup_conf.yml
+
+  handlers:
+    - name: Restart postgresql
+      ansible.builtin.systemd:
+        name: postgresql
+        state: restarted
+
+    - name: Reload postgresql
+      ansible.builtin.systemd:
+        name: postgresql
+        state: reloaded

@@ -1,0 +1,25 @@
+---
+- name: Revoke CREATE on schema public from PUBLIC
+  become_user: postgres
+  community.postgresql.postgresql_query:
+    port: "{{ postgres_port }}"
+    db: "{{ db_name }}"
+    query: "REVOKE CREATE ON SCHEMA public FROM PUBLIC;"
+
+# Best practice
+# - name: Revoke ALL privileges on database from PUBLIC
+#   become_user: postgres
+#   community.postgresql.postgresql_query:
+#     port: "{{ postgres_port }}"
+#     db: "{{ db_name }}"
+#     query: "REVOKE ALL ON DATABASE {{ db_name }} FROM PUBLIC;"
+
+# template is nearly a copy of the original pg_hba.conf
+- name: Configure pg_hba.conf from template
+  ansible.builtin.template:
+    src: pg_hba.conf.j2
+    dest: "{{ hba_file }}"
+    owner: postgres
+    group: postgres
+    mode: '0600'
+  notify: Reload postgresql
