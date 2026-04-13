@@ -1,0 +1,184 @@
+---
+- name: Configure journald + rsyslog central server
+  hosts: localhost
+  become: true
+  gather_facts: false
+  check_mode: false
+
+  vars:
+    rsyslog_db: "logdb"
+    rsyslog_user: "rsyslog"
+    # bad, but we can't use hash right here
+    # maybe something throught ansible vault?
+    rsyslog_password: "123_qwe"
+
+  tasks:
+    - name: Configure journald
+      ansible.builtin.lineinfile:
+        path: /etc/systemd/journald.conf
+        regexp: '^#?\s*{{ item.key }}=.*'
+        line: "{{ item.key }}={{ item.value }}"
+      loop:
+        - { key: "Storage", value: "persistent" }
+        - { key: "Compress", value: "yes" }
+        - { key: "MaxFileSize", value: "100M" }
+        - { key: "RateLimitIntervalSec", value: "30s" }
+        - { key: "RateLimitBurst", value: "1000" }
+        - { key: "ForwardToSyslog", value: "yes" }
+        - { key: "MaxRetentionSec", value: "1week" }
+      notify: Restart journald
+
+    - name: Pre-configure MySQL to avoid interactive prompts
+      ansible.builtin.debconf:
+        name: rsyslog-mysql
+        question: rsyslog-mysql/auto-create-db
+        value: "false"
+        vtype: boolean
+
+    - name: Install rsyslog, mysql, etc.
+      ansible.builtin.apt:
+        name:
+          - rsyslog
+          - rsyslog-mysql
+          - default-mysql-server
+        state: present
+        update_cache: true
+
+    - name: Ensure MySQL is running
+      ansible.builtin.systemd:
+        name: mysql
+        state: started
+        enabled: true
+
+    - name: Create MySQL database
+      community.mysql.mysql_db:
+        name: "{{ rsyslog_db }}"
+        state: present
+        login_unix_socket: /run/mysqld/mysqld.sock
+
+    - name: Create MySQL user
+      community.mysql.mysql_user:
+        name: "{{ rsyslog_user }}"
+        password: "{{ rsyslog_password }}"
+        host: localhost
+        priv: "{{ rsyslog_db }}.*:INSERT"
+        state: present
+        login_unix_socket: /run/mysqld/mysqld.sock
+
+    - name: Create logs table
+      community.mysql.mysql_query:
+        login_db: "{{ rsyslog_db }}"
+        query: |
+          CREATE TABLE IF NOT EXISTS logs (
+              id INT AUTO_INCREMENT PRIMARY KEY,
+              Hostname VARCHAR(255),
+              Facility VARCHAR(50),
+              Priority VARCHAR(50),
+              Severity INT,
+              Message TEXT,
+              Timestamp DATETIME
+          )
+        login_unix_socket: /run/mysqld/mysqld.sock
+
+    - name: Ensure rsyslog modules are loaded
+      ansible.builtin.lineinfile:
+        path: /etc/rsyslog.conf
+        regexp: '^#?\s*module\(load="{{ item }}"\)'
+        line: 'module(load="{{ item }}")'
+        insertafter: '^#### MODULES ####'
+      loop:
+        - imuxsock
+        - imklog
+        - ommysql
+      notify: Restart rsyslog
+
+    - name: Load imudp module
+      ansible.builtin.lineinfile:
+        path: /etc/rsyslog.conf
+        regexp: '^#?\s*module\(load="imudp"\)'
+        line: 'module(load="imudp")'
+        insertafter: '^#### MODULES ####'
+      notify: restart rsyslog
+
+    - name: Configure UDP input
+      ansible.builtin.lineinfile:
+        path: /etc/rsyslog.conf
+        regexp: '^#?\s*input\(type="imudp"'
+        line: 'input(type="imudp" port="514")'
+        insertafter: '^module\(load="imudp"\)'
+      notify: restart rsyslog
+
+    - name: Load imtcp module
+      ansible.builtin.lineinfile:
+        path: /etc/rsyslog.conf
+        regexp: '^#?\s*module\(load="imtcp"\)'
+        line: 'module(load="imtcp")'
+        insertafter: '^#### MODULES ####'
+      notify: restart rsyslog
+
+    - name: Configure TCP input
+      ansible.builtin.lineinfile:
+        path: /etc/rsyslog.conf
+        regexp: '^#?\s*input\(type="imtcp"'
+        line: 'input(type="imtcp" port="514")'
+        insertafter: '^module\(load="imtcp"\)'
+      notify: restart rsyslog
+
+    - name: Remove default mysql.conf
+      ansible.builtin.file:
+        path: /etc/rsyslog.d/mysql.conf
+        state: absent
+      notify: restart rsyslog
+
+    - name: Create rsyslog rules configuration
+      ansible.builtin.copy:
+        dest: /etc/rsyslog.d/corp.rsyslog.rules.conf
+        content: |
+          *.emerg :omusrmsg:*
+
+          mail.* -/var/log/mail
+
+          auth,authpriv.* /var/log/secure
+
+          mail.info -/var/log/mail.info
+          mail.warning -/var/log/mail.warn
+          mail.err /var/log/mail.err
+
+          news.crit -/var/log/news/news.crit
+          news.err -/var/log/news/news.err
+          news.notice -/var/log/news/news.notice
+
+          *.=warning;*.=err -/var/log/warn
+
+          *.crit -/var/log/warn.log
+          *.*;mail.none;news.none -/var/log/messages.log
+
+          template(name="MySQL_Template" type="string" option.sql="on" string=
+            "INSERT INTO logs (Hostname, Facility, Priority, Severity, Message, Timestamp)
+            VALUES ('%HOSTNAME%', '%syslogfacility-text%', '%syslogpriority-text%', '%syslogseverity%', '%msg%', '%timereported:::date-mysql%')"
+          )
+
+          *.* action(type="ommysql" server="127.0.0.1" serverport="3306" db="logdb" uid="rsyslog" pwd="123_qwe" template="MySQL_Template")
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart rsyslog
+
+    - name: Validate rsyslog configuration
+      ansible.builtin.command: rsyslogd -N 1
+      register: rsyslog_validate
+      changed_when: false
+      failed_when: "'error' in rsyslog_validate.stderr"
+
+  handlers:
+    - name: Restart journald
+      ansible.builtin.systemd:
+        name: systemd-journald
+        state: restarted
+        daemon_reload: true
+
+    - name: Restart rsyslog
+      ansible.builtin.systemd:
+        name: rsyslog
+        state: restarted
+        enabled: true
